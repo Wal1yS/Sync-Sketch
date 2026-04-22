@@ -1,0 +1,234 @@
+* {
+  box-sizing: border-box;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+.drawing-page {
+  width: 100%;
+  min-height: 100vh;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(#e899d9, #ee7cc7);
+}
+
+/* Drawing page title */
+.drawing-page h1 {
+  margin: 30px 0 0;
+  text-align: center;
+  color: #fff;
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+/* 3 elements: left status, center canvas, right users */
+.main-content {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 100px minmax(700px, 1fr) 260px;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.center-canvas {
+  display: flex;
+  justify-content: center;
+}
+
+/* Canvas + toolbar */
+.canvas-with-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Vertical tools panel */
+.toolbar-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* One style for tool buttons */
+.toolbar-vertical button {
+  min-width: 56px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  color: #374151;
+  background: linear-gradient(180deg, #ffffff 0%, #f3f4f6 100%);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.toolbar-vertical button:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  background: linear-gradient(180deg, #ffffff 0%, #eceff3 100%);
+}
+
+.toolbar-vertical button:active {
+  transform: scale(0.97);
+}
+
+/* Canvas container */
+.canvas-draw-container {
+  background: white;
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+.canvas-draw-container canvas {
+  display: block;
+  border-radius: 8px;
+}
+
+/* Users sidebar */
+.users-panel {
+  width: 240px;
+  padding: 22px;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 18px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  align-self: center;
+}
+
+/* Users panel title */
+.users-panel h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  color: #1f2937;
+  text-align: center;
+}
+
+/* List of users */
+.users-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* List Items */
+.users-panel li {
+  padding: 12px 0;
+  text-align: center;
+  font-size: 14px;
+  color: #4b5563;
+  border-bottom: 1px solid #ececec;
+}
+
+/* Style for the last user item */
+.users-panel li:last-child {
+  border-bottom: none;
+}
+
+/* Connection info */
+.status-info {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  border-radius: 999px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* Latency */
+.delay {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* Brush size control */
+.size-control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Brush size input from the user */
+.size-input {
+  width: 56px;
+  height: 38px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: white;
+  outline: none;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* Brush color choice by user */
+.color-input {
+  min-width: 56px;
+  width: 56px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background: linear-gradient(180deg, #ffffff 0%, #f3f4f6 100%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+  margin: 6px 0;
+  align-self: center;
+}
+
+.color-input:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.color-input:active {
+  transform: scale(0.97);
+}
+
+/* Styles for color input button */
+.color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border-radius: 12px;
+}
+
+.color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 12px;
+}
+
+/* The cursor becomes a cross + */
+.canvas-draw-container.pipette-mode {
+  cursor: crosshair;
+}
