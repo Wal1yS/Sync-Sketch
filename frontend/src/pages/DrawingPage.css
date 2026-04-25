@@ -232,3 +232,14 @@
 .canvas-draw-container.pipette-mode {
   cursor: crosshair;
 }
+
+.size-input::-webkit-outer-spin-button,
+.size-input::-webkit-inner-spin-button {
+    -webkit-appearance: none; /* Это самое важное */
+    margin: 0;
+}
+
+
+.size-input {
+    -moz-appearance: textfield;
+}
