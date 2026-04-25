@@ -6,6 +6,7 @@ export interface Stroke {
     color: string;
     width: number;
     points: Point[];
+    isEraser?: boolean;
 }
 
 interface CanvasProps {
@@ -21,20 +22,33 @@ const Canvas = forwardRef(({ brushColor = '#000000', brushRadius = 2, onStrokeFi
 
     const [selectedColor, setSelectedColor] = useState(brushColor);
     const [brushSize, setBrushSize] = useState(brushRadius);
-    const [isEyeDropperMode, setIsEyeDropperMode] = useState(false);
 
     const [isDrawing, setIsDrawing] = useState(false);
     const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null);
 
+    const [isErasing, setIsErasing] = useState(false);
+    const [savedColor, setSavedColor] = useState(brushColor);
+    
+    const getContext = () => {
+        return canvasRef.current?.getContext('2d');
+    };
+
     useImperativeHandle(ref, () => ({
         clearLocal: () => {
-            const ctx = canvasRef.current?.getContext('2d');
+            const ctx = getContext();
             if (ctx && canvasRef.current) ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
         },
         drawStroke: (stroke: Stroke) => {
-            const ctx = canvasRef.current?.getContext('2d');
+            const ctx = getContext();
             if (!ctx || stroke.points.length < 1) return;
-            ctx.strokeStyle = stroke.color;
+            ctx.save();
+            if (stroke.isEraser) {
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.strokeStyle = 'rgba(0,0,0,1)';
+            } else {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.strokeStyle = stroke.color;
+            }
             ctx.lineWidth = stroke.width;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
@@ -42,12 +56,13 @@ const Canvas = forwardRef(({ brushColor = '#000000', brushRadius = 2, onStrokeFi
             ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
             stroke.points.forEach(p => ctx.lineTo(p.x, p.y));
             ctx.stroke();
+            ctx.restore();
         }
     }));
 
     const clearCanvas = () => {
         onClearRequest();
-        const ctx = canvasRef.current?.getContext('2d');
+        const ctx = getContext();
         if (ctx && canvasRef.current) ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     };
 
@@ -58,25 +73,13 @@ const Canvas = forwardRef(({ brushColor = '#000000', brushRadius = 2, onStrokeFi
     const increaseSize = () => setBrushSize(prev => Math.min(prev + 1, 30));
     const decreaseSize = () => setBrushSize(prev => Math.max(prev - 1, 1));
 
-    const getColorAtPixel = (x: number, y: number) => {
-        const canvas = canvasRef.current;
-        const ctx = canvas?.getContext('2d');
-        if (!ctx) return;
-        const pixel = ctx.getImageData(x, y, 1, 1).data;
-        const hex = '#' + [pixel[0], pixel[1], pixel[2]].map((v) => v.toString(16).padStart(2, '0')).join('');
-        setSelectedColor(hex);
-        setIsEyeDropperMode(false);
-    };
-
-    const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!isEyeDropperMode) return;
-        const rect = canvasRef.current?.getBoundingClientRect();
-        if (rect) {
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
-                getColorAtPixel(x, y);
-            }
+    const makeEraser = () => {
+        if (!isErasing) {
+            setSavedColor(selectedColor);
+            setIsErasing(true);
+        } else {
+            setSelectedColor(savedColor);
+            setIsErasing(false);
         }
     };
 
@@ -86,20 +89,26 @@ const Canvas = forwardRef(({ brushColor = '#000000', brushRadius = 2, onStrokeFi
     };
 
     const handleMouseDown = (e: React.MouseEvent) => {
-        if (isEyeDropperMode) return;
         const p = getCoords(e);
-        const newStroke: Stroke = { id: crypto.randomUUID(), color: selectedColor, width: brushSize, points: [p] };
+        const newStroke: Stroke = { id: crypto.randomUUID(), color: selectedColor, width: brushSize, points: [p], isEraser: isErasing };
         setCurrentStroke(newStroke);
         setIsDrawing(true);
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (!isDrawing || !currentStroke || isEyeDropperMode) return;
+        if (!isDrawing || !currentStroke) return;
         const p = getCoords(e);
         const lastP = currentStroke.points[currentStroke.points.length - 1];
-        const ctx = canvasRef.current?.getContext('2d');
+        const ctx = getContext();
         if (ctx) {
-            ctx.strokeStyle = currentStroke.color;
+            ctx.save();
+            if (currentStroke.isEraser) {
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.strokeStyle = 'rgba(0,0,0,1)';
+            } else {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.strokeStyle = currentStroke.color;
+            }
             ctx.lineWidth = currentStroke.width;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
@@ -107,6 +116,7 @@ const Canvas = forwardRef(({ brushColor = '#000000', brushRadius = 2, onStrokeFi
             ctx.moveTo(lastP.x, lastP.y);
             ctx.lineTo(p.x, p.y);
             ctx.stroke();
+            ctx.restore();
         }
         currentStroke.points.push(p);
     };
@@ -125,25 +135,24 @@ const Canvas = forwardRef(({ brushColor = '#000000', brushRadius = 2, onStrokeFi
                 <div className="toolbar-vertical">
                     <button onClick={undo}>Undo</button>
                     <button onClick={clearCanvas}>Clear</button>
+                    <button onClick={makeEraser}>{isErasing ? 'Draw' : 'Eraser'}</button>
                     <div className="size-control">
                         <button className="size-button" onClick={increaseSize}>+</button>
                         <input
                             type="number"
                             className="size-input"
-                            value={brushSize === 0 ? '' : brushSize}
+                            value={brushSize}
                             onChange={(e) => {
                                 const val = parseInt(e.target.value);
-                                setBrushSize(isNaN(val) ? 0 : Math.min(Math.max(val, 1), 30));
+                                if (!isNaN(val)) {
+                                    setBrushSize(Math.min(Math.max(val, 1), 30));
+                                }
                             }}
                             style={{ color: 'black' }}
                         />
                         <button className="size-button" onClick={decreaseSize}>-</button>
                     </div>
-                    <button
-                        className={`pipette-button ${isEyeDropperMode ? 'active' : ''}`}
-                        onClick={() => setIsEyeDropperMode(!isEyeDropperMode)}
-                        title="Pick color from canvas">Pipette
-                    </button>
+                    {!isErasing && (
                     <input
                         type="color"
                         className="color-input"
@@ -151,11 +160,9 @@ const Canvas = forwardRef(({ brushColor = '#000000', brushRadius = 2, onStrokeFi
                         onChange={(e) => setSelectedColor(e.target.value)}
                         title="Choose color"
                     />
+                )}
                 </div>
-                <div
-                    className={`canvas-draw-container ${isEyeDropperMode ? 'pipette-mode' : ''}`}
-                    onClick={handleCanvasClick}
-                >
+                <div className="canvas-draw-container">
                     <canvas
                         ref={canvasRef}
                         width={800}
@@ -164,7 +171,7 @@ const Canvas = forwardRef(({ brushColor = '#000000', brushRadius = 2, onStrokeFi
                         onMouseMove={handleMouseMove}
                         onMouseUp={handleMouseUp}
                         onMouseLeave={handleMouseUp}
-                        style={{ background: 'transparent' }}
+                        style={{ background: 'white' }}
                     />
                 </div>
             </div>
