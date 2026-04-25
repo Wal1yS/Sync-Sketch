@@ -2,31 +2,49 @@ import { useState, useEffect, useRef } from 'react'
 import Canvas, {type Stroke } from '../components/Canvas';
 import './DrawingPage.css'
 
+interface InitAction {
+    data: Stroke;
+}
+
 function DrawingPage() {
     const [syncStatus, setSyncStatus] = useState('connecting');
     const [otherUsers, setOtherUsers] = useState<string[]>([]);
     const [networkDelay, setNetworkDelay] = useState(0);
 
+    const [, setUserDelays] = useState<Map<string, number>>(new Map());
+
     const [socket, setSocket] = useState<WebSocket | null>(null);
     const [myStrokeIds, setMyStrokeIds] = useState<string[]>([]);
     const [, setAllStrokes] = useState<Stroke[]>([]);
-    const canvasRef = useRef<any>(null);
+    const canvasRef = useRef<{
+        clearLocal: () => void;
+        drawStroke: (stroke: Stroke) => void;
+    } | null>(null);
+    const pingIntervalRef = useRef<number | undefined>(undefined);
 
     useEffect (() => {
         const ws = new WebSocket('ws://localhost:8080/draw');
 
         ws.onopen = () => {
             setSyncStatus('connected');
-            setOtherUsers(['MockUser1', 'MockUser2']);
+            //setOtherUsers(['MockUser1', 'MockUser2']);
         };
 
         ws.onmessage = (event) => {
             const msg = JSON.parse(event.data);
 
+            if (msg.type === 'PONG') {
+                const delay = Date.now() - msg.timestamp;
+                setNetworkDelay(delay);
+                setUserDelays(prev => new Map(prev).set(msg.userId, delay));
+                return;
+            }
+        
             if (msg.type === 'INIT') {
-                const history = msg.data.map((action: any) => action.data);
+                const history = msg.data.map((action: InitAction) => action.data);
                 setAllStrokes(history);
                 history.forEach((stroke: Stroke) => canvasRef.current?.drawStroke(stroke));
+                setOtherUsers(['MockUser1', 'MockUser2']);
             }
             else if (msg.type === 'STROKE') {
                 setAllStrokes(prev => [...prev, msg.data]);
@@ -49,13 +67,17 @@ function DrawingPage() {
 
         setSocket(ws);
 
-        const interval = setInterval(() => {
-            const delay = Math.floor(Math.random() * 400) + 100;
-            setNetworkDelay(delay);
-        }, 3000);
+        pingIntervalRef.current = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'PING',
+                    timestamp: Date.now()
+                }));
+            }
+        }, 2000);
 
         return () => {
-            clearInterval(interval);
+            if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
             ws.close();
         };
     }, []);

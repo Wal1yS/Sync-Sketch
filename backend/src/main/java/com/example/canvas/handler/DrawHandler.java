@@ -6,7 +6,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import com.example.canvas.dto.request.ActionDTO;
+import com.example.canvas.dto.response.PongDTO;
 import com.example.canvas.dto.request.MessageType;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
@@ -20,12 +23,14 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class DrawHandler extends TextWebSocketHandler {
     private final List<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
     private final List<ActionDTO> strokesHistory = new CopyOnWriteArrayList<>();
+    private final Map<String, Long> userLastPing = new ConcurrentHashMap<>();
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         sessions.add(session);
+        userLastPing.put(session.getId(), System.currentTimeMillis());
 
         ActionDTO historyMessage = new ActionDTO();
         historyMessage.setType(MessageType.INIT);
@@ -36,6 +41,16 @@ public class DrawHandler extends TextWebSocketHandler {
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+        String payload = message.getPayload();
+        JsonNode jsonNode = objectMapper.readTree(payload);
+        String type = jsonNode.has("type") ? jsonNode.get("type").asText() : null;
+        if ("PING".equals(type)) {
+            long pingTimestamp = jsonNode.has("timestamp") ? jsonNode.get("timestamp").asLong() : System.currentTimeMillis();
+            PongDTO pong = new PongDTO("PONG", pingTimestamp, session.getId());
+            session.sendMessage(new TextMessage(objectMapper.writeValueAsString(pong)));
+            return;
+        }
+        
         ActionDTO action = objectMapper.readValue(message.getPayload(), ActionDTO.class);
 
         switch (action.getType()) {
