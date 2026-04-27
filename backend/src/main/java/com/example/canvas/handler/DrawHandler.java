@@ -19,24 +19,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import com.example.canvas.dto.response.UsersDTO;
+import com.example.canvas.util.NameGenerator;
+import java.util.stream.Collectors;
+
 @Component
 public class DrawHandler extends TextWebSocketHandler {
     private final List<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
     private final List<ActionDTO> strokesHistory = new CopyOnWriteArrayList<>();
     private final Map<String, Long> userLastPing = new ConcurrentHashMap<>();
+    private final Map<String, String> sessionNames = new ConcurrentHashMap<>();
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        String name = NameGenerator.generate();
+        sessionNames.put(session.getId(), name);
         sessions.add(session);
         userLastPing.put(session.getId(), System.currentTimeMillis());
 
         ActionDTO historyMessage = new ActionDTO();
         historyMessage.setType(MessageType.INIT);
+        historyMessage.setMyName(name);
+        historyMessage.setUsers(getAllNames());
         historyMessage.setData(strokesHistory);
 
         session.sendMessage(new TextMessage(objectMapper.writeValueAsString(historyMessage)));
+
+        broadcastUsers();
     }
 
     @Override
@@ -102,5 +113,26 @@ public class DrawHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         sessions.remove(session);
+        sessionNames.remove(session.getId());
+        broadcastUsers();                     
+    }
+
+    private List<String> getAllNames() {
+        return sessions.stream()
+            .map(s -> sessionNames.get(s.getId()))
+            .filter(n -> n != null)
+            .collect(Collectors.toList());
+    }
+
+    private void broadcastUsers() {
+        try {
+            String payload = objectMapper.writeValueAsString(new UsersDTO("USERS", getAllNames()));
+            TextMessage msg = new TextMessage(payload);
+            for (WebSocketSession s : sessions) {
+                if (s.isOpen()) s.sendMessage(msg);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

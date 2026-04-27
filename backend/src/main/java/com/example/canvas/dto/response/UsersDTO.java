@@ -1,4 +1,4 @@
-package com.example.canvas.dto.request;
+package com.example.canvas.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -8,10 +8,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ActionDTO {
-    private MessageType type;
-    private Object data;
-    private String myName;   
+public class UsersDTO {
+    private String type = "USERS";
     private List<String> users;
-
 }

@@ -8,6 +8,7 @@ interface InitAction {
 
 function DrawingPage() {
     const [syncStatus, setSyncStatus] = useState('connecting');
+    const [myName, setMyName] = useState<string>('');
     const [otherUsers, setOtherUsers] = useState<string[]>([]);
     const [networkDelay, setNetworkDelay] = useState(0);
 
@@ -21,13 +22,13 @@ function DrawingPage() {
         drawStroke: (stroke: Stroke) => void;
     } | null>(null);
     const pingIntervalRef = useRef<number | undefined>(undefined);
+    const myNameRef = useRef<string>('');
 
     useEffect (() => {
         const ws = new WebSocket('ws://localhost:8080/draw');
 
         ws.onopen = () => {
             setSyncStatus('connected');
-            //setOtherUsers(['MockUser1', 'MockUser2']);
         };
 
         ws.onmessage = (event) => {
@@ -41,10 +42,15 @@ function DrawingPage() {
             }
         
             if (msg.type === 'INIT') {
+                setMyName(msg.myName);
+                myNameRef.current = msg.myName;
+                setOtherUsers((msg.users as string[]).filter((u: string) => u !== msg.myName));
                 const history = msg.data.map((action: InitAction) => action.data);
                 setAllStrokes(history);
                 history.forEach((stroke: Stroke) => canvasRef.current?.drawStroke(stroke));
-                setOtherUsers(['MockUser1', 'MockUser2']);
+            }
+            else if (msg.type === 'USERS') {
+                setOtherUsers((msg.users as string[]).filter((u: string) => u !== myNameRef.current));
             }
             else if (msg.type === 'STROKE') {
                 setAllStrokes(prev => [...prev, msg.data]);
@@ -132,7 +138,7 @@ function DrawingPage() {
                 <div className="users-panel">
                     <h3>In room ({otherUsers.length + 1}):</h3>
                     <ul>
-                        <li><strong>You (you)</strong></li>
+                        <li><strong>{myName} (you)</strong></li>
                         {otherUsers.map(user => (
                             <li key={user}>{user}</li>
                         ))}
