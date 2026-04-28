@@ -9,9 +9,13 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ActionDTO {
+    // Type of message sent through WebSocket
     private MessageType type;
+    // Payload of the message
     private Object data;
-    private String myName;   
+    // Name assigned to the user who sent this message
+    private String myName; 
+    // List of all connected users
     private List<String> users;
 
 }

@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.List;
 
+// Message sent to clients containing the updated list of connected users
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

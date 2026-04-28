@@ -23,22 +23,32 @@ import com.example.canvas.dto.response.UsersDTO;
 import com.example.canvas.util.NameGenerator;
 import java.util.stream.Collectors;
 
+// WebSocket handler that manages drawing events, user sessions, and message broadcasting
 @Component
 public class DrawHandler extends TextWebSocketHandler {
+    // Active WebSocket connections
     private final List<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
+
+    // Full history of all strokes for new clients
     private final List<ActionDTO> strokesHistory = new CopyOnWriteArrayList<>();
+
+    // Last ping time per user (used for latency tracking)
     private final Map<String, Long> userLastPing = new ConcurrentHashMap<>();
+
+    // Mapping sessionId and username
     private final Map<String, String> sessionNames = new ConcurrentHashMap<>();
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        // Assign a random username and register the new session
         String name = NameGenerator.generate();
         sessionNames.put(session.getId(), name);
         sessions.add(session);
         userLastPing.put(session.getId(), System.currentTimeMillis());
 
+        // Send initial sync: username, users list, and stroke history
         ActionDTO historyMessage = new ActionDTO();
         historyMessage.setType(MessageType.INIT);
         historyMessage.setMyName(name);
@@ -47,6 +57,7 @@ public class DrawHandler extends TextWebSocketHandler {
 
         session.sendMessage(new TextMessage(objectMapper.writeValueAsString(historyMessage)));
 
+        // Notify all clients about updated users list
         broadcastUsers();
     }
 
@@ -54,6 +65,8 @@ public class DrawHandler extends TextWebSocketHandler {
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
         JsonNode jsonNode = objectMapper.readTree(payload);
+
+        // Handle latency check
         String type = jsonNode.has("type") ? jsonNode.get("type").asText() : null;
         if ("PING".equals(type)) {
             long pingTimestamp = jsonNode.has("timestamp") ? jsonNode.get("timestamp").asLong() : System.currentTimeMillis();
@@ -62,6 +75,7 @@ public class DrawHandler extends TextWebSocketHandler {
             return;
         }
         
+        // Parse regular drawing actions
         ActionDTO action = objectMapper.readValue(message.getPayload(), ActionDTO.class);
 
         switch (action.getType()) {
@@ -72,11 +86,13 @@ public class DrawHandler extends TextWebSocketHandler {
     }
 
     private void handleStroke(ActionDTO action, WebSocketSession session) throws Exception {
+        // Save stroke and broadcast it to all other users
         strokesHistory.add(action);
         broadcast(objectMapper.writeValueAsString(action), session);
     }
 
     private void handleClear(WebSocketSession session) throws Exception {
+        // Remove all strokes and notify others
         strokesHistory.clear();
 
         ActionDTO message = new ActionDTO();
@@ -86,6 +102,7 @@ public class DrawHandler extends TextWebSocketHandler {
     }
 
     private void handleUndo(String strokeId, WebSocketSession session) throws Exception {
+        // Remove the stroke with the matching ID
         strokesHistory.removeIf(action -> {
             if (action.getType() == MessageType.STROKE && action.getData() instanceof Map) {
                 Map<?, ?> dataMap = (Map<?, ?>) action.getData();
@@ -94,6 +111,7 @@ public class DrawHandler extends TextWebSocketHandler {
             return false;
         });
 
+        // Notify others to undo the stroke
         ActionDTO message = new ActionDTO();
         message.setType(MessageType.UNDO);
         message.setData(strokeId);
@@ -102,6 +120,7 @@ public class DrawHandler extends TextWebSocketHandler {
     }
 
     private void broadcast(String payload, WebSocketSession excludeSession) throws IOException {
+        // Send a message to all sessions except the sender
         TextMessage textMessage = new TextMessage(payload);
         for (WebSocketSession s : sessions) {
             if (s.isOpen() && !s.getId().equals(excludeSession.getId())) {
@@ -112,12 +131,14 @@ public class DrawHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        // Remove user and update the users list
         sessions.remove(session);
         sessionNames.remove(session.getId());
         broadcastUsers();                     
     }
 
     private List<String> getAllNames() {
+        // Return list of all active usernames
         return sessions.stream()
             .map(s -> sessionNames.get(s.getId()))
             .filter(n -> n != null)
@@ -125,6 +146,7 @@ public class DrawHandler extends TextWebSocketHandler {
     }
 
     private void broadcastUsers() {
+        // Send updated users list to all clients
         try {
             String payload = objectMapper.writeValueAsString(new UsersDTO("USERS", getAllNames()));
             TextMessage msg = new TextMessage(payload);

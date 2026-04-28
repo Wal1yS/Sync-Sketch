@@ -12,10 +12,12 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     private final DrawHandler drawHandler;
 
+    // Inject the WebSocket handler that will process all drawing messages
     public WebSocketConfig(DrawHandler drawHandler) {
         this.drawHandler = drawHandler;
     }
 
+    // Register WebSocket handler for drawing events
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(drawHandler, "/draw").setAllowedOrigins("*");
